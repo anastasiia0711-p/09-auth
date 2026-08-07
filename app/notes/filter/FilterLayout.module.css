@@ -1,0 +1,15 @@
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 250px;
+    border-right: 1px solid #eaeaea;
+    padding: 20px;
+}
+
+.notesWrapper {
+    flex: 1;
+    padding: 20px;
+}
