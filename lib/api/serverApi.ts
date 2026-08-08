@@ -78,3 +78,18 @@ export const checkSession = async (): Promise<AxiosResponse> => {
 
   return response;
 };
+export const refreshSession = async (): Promise<AxiosResponse> => {
+  const cookieStore = await cookies();
+
+  const response = await api.post(
+    "/auth/refresh",
+    {},
+    {
+      headers: {
+        Cookie: cookieStore.toString(),
+      },
+    },
+  );
+
+  return response;
+};

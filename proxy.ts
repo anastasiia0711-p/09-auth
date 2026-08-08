@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
+import { checkSession, refreshSession } from "@/lib/api/serverApi";
+import { parseSetCookie } from "cookie";
 
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
@@ -12,55 +14,43 @@ interface ParsedCookie {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
   const cookieStore = await cookies();
 
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
-  const cookieHeader = request.headers.get("cookie") || "";
 
   let isAuthenticated = false;
   const newCookies: ParsedCookie[] = [];
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL || "https://notehub-api.goit.study";
-
   if (accessToken) {
     try {
-      const response = await fetch(`${apiUrl}/auth/session`, {
-        headers: {
-          Cookie: cookieHeader,
-        },
-      });
-      isAuthenticated = response.ok;
+      const response = await checkSession();
+      isAuthenticated = response.status >= 200 && response.status < 300;
     } catch {
       isAuthenticated = false;
     }
   } else if (refreshToken) {
     try {
-      const response = await fetch(`${apiUrl}/auth/refresh`, {
-        method: "POST",
-        headers: {
-          Cookie: cookieHeader,
-        },
-      });
+      const response = await refreshSession();
 
-      if (response.ok) {
+      if (response.status >= 200 && response.status < 300) {
         isAuthenticated = true;
 
+        const headers = response.headers;
         const setCookieHeader =
-          response.headers.getSetCookie?.() ||
-          response.headers.get("set-cookie");
+          typeof headers.getSetCookie === "function"
+            ? headers.getSetCookie()
+            : headers["set-cookie"];
+
         if (setCookieHeader) {
           const cookieStrings = Array.isArray(setCookieHeader)
             ? setCookieHeader
             : [setCookieHeader];
 
           cookieStrings.forEach((str) => {
-            const [pair] = str.split(";");
-            const [name, value] = pair.split("=");
-            if (name && value) {
-              newCookies.push({ name: name.trim(), value: value.trim() });
+            const parsed = parseSetCookie(str);
+            if (parsed && parsed.name && parsed.value) {
+              newCookies.push({ name: parsed.name, value: parsed.value });
             }
           });
         }
