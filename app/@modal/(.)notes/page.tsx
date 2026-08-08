@@ -1,7 +1,7 @@
 
 import { dehydrate, HydrationBoundary, QueryClient } from '@tanstack/react-query';
 import { fetchNotes } from '@/lib/api/serverApi';
-import NotesClient from '../../notes/filter/[...slug]/Notes.client'; 
+import NotesClient from '../../(private routes)/notes/filter/[...slug]/Notes.client'; 
 
 interface PageProps {
   params: Promise<{ slug?: string[] }>;
