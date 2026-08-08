@@ -2,21 +2,35 @@
 
 import { useId } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNoteStore } from '@/lib/store/noteStore';
+import { createNote } from '@/lib/api/clientApi';
+import type { NoteTag } from '@/types/note'; 
+import toast from 'react-hot-toast';
 import css from './NoteForm.module.css';
 
-interface NoteFormProps {
-  formAction: (formData: FormData) => void | Promise<void>;
-  isPending?: boolean;
-}
-
-export const NoteForm = ({ formAction, isPending = false }: NoteFormProps) => {
+export const NoteForm = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const titleId = useId();
   const contentId = useId();
   const tagId = useId();
 
   const { draft, setDraft, clearDraft } = useNoteStore();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: createNote,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      clearDraft();
+      toast.success('Note created successfully!');
+      router.push('/notes/filter');
+    },
+    onError: (error) => {
+      console.error('Failed to create note:', error);
+      toast.error('Failed to create note. Please try again.');
+    },
+  });
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -28,13 +42,19 @@ export const NoteForm = ({ formAction, isPending = false }: NoteFormProps) => {
     });
   };
 
-  const handleSubmit = async (formData: FormData) => {
-    await formAction(formData);
-    clearDraft();
+  
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    mutate({
+      title: draft.title,
+      content: draft.content,
+      tag: (draft.tag || 'Todo') as NoteTag, 
+    });
   };
 
   return (
-    <form action={handleSubmit} className={css.form}>
+    <form onSubmit={handleSubmit} className={css.form}>
       <div className={css.fieldGroup}>
         <label htmlFor={titleId} className={css.label}>Title</label>
         <input

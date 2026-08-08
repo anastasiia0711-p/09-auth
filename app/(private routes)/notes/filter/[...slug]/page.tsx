@@ -4,13 +4,12 @@ import NotesClient from './Notes.client';
 import type { Metadata } from 'next';
 
 interface Props {
-  params?: Promise<{ slug?: string[] }>;
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
+  params: { slug?: string[] };
+  searchParams: { [key: string]: string | string[] | undefined };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const resolvedParams = await params ?? {};
-  const slug = resolvedParams.slug;
+  const slug = params.slug;
   const tag = slug && slug.length > 0 ? slug[0] : 'all';
   const titleTag = tag === 'all' ? 'All Notes' : `Notes: ${tag}`;
 
@@ -34,15 +33,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function NotesPage({ params, searchParams }: Props) {
-  const resolvedParams = params ? await params : {};
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-
- 
-  const slug = resolvedParams.slug;
+  const slug = params.slug;
   const tag = slug && slug.length > 0 ? slug[0] : 'all';
   const currentTag = tag === 'all' ? '' : tag;
 
-  const search = typeof resolvedSearchParams.search === 'string' ? resolvedSearchParams.search : '';
+  const search = typeof searchParams.search === 'string' ? searchParams.search : '';
 
   const page = 1;
   const perPage = 12;
