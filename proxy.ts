@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { cookies } from "next/headers";
 
 const privateRoutes = ["/profile", "/notes"];
 const publicRoutes = ["/sign-in", "/sign-up"];
 
+interface ParsedCookie {
+  name: string;
+  value: string;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const cookieStore = request.cookies;
+
+  const cookieStore = await cookies();
 
   const accessToken = cookieStore.get("accessToken")?.value;
   const refreshToken = cookieStore.get("refreshToken")?.value;
   const cookieHeader = request.headers.get("cookie") || "";
 
   let isAuthenticated = false;
-  let newSetCookieHeaders: string[] = [];
+  const newCookies: ParsedCookie[] = [];
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || "https://notehub-api.goit.study";
@@ -45,9 +52,17 @@ export async function proxy(request: NextRequest) {
           response.headers.getSetCookie?.() ||
           response.headers.get("set-cookie");
         if (setCookieHeader) {
-          newSetCookieHeaders = Array.isArray(setCookieHeader)
+          const cookieStrings = Array.isArray(setCookieHeader)
             ? setCookieHeader
             : [setCookieHeader];
+
+          cookieStrings.forEach((str) => {
+            const [pair] = str.split(";");
+            const [name, value] = pair.split("=");
+            if (name && value) {
+              newCookies.push({ name: name.trim(), value: value.trim() });
+            }
+          });
         }
       }
     } catch {
@@ -62,17 +77,17 @@ export async function proxy(request: NextRequest) {
 
   if (isPrivate && !isAuthenticated) {
     res = NextResponse.redirect(new URL("/sign-in", request.url));
-  }
-
-  if (isPublic && isAuthenticated) {
+  } else if (isPublic && isAuthenticated) {
     res = NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (newSetCookieHeaders.length > 0) {
-    newSetCookieHeaders.forEach((cookieStr) => {
-      res.headers.append("Set-Cookie", cookieStr);
+  newCookies.forEach((c) => {
+    res.cookies.set(c.name, c.value, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
     });
-  }
+  });
 
   return res;
 }

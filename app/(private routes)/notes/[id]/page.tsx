@@ -4,11 +4,11 @@ import { fetchNoteById } from '@/lib/api/serverApi';
 import NoteDetails from '@/components/NoteDetails/NoteDetails';
 
 interface NotePageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export async function generateMetadata({ params }: NotePageProps): Promise<Metadata> {
-  const { id } = params;
+  const { id } = await params;
   
   let noteTitle = 'Note Details';
   let noteDescription = 'View your note details in NoteHub.';
@@ -19,8 +19,8 @@ export async function generateMetadata({ params }: NotePageProps): Promise<Metad
       noteTitle = note.title;
       noteDescription = note.content ? note.content.slice(0, 100) + '...' : noteDescription;
     }
-  }  catch {
-    
+  } catch {
+    // Fallback values
   }
 
   return {
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: NotePageProps): Promise<Metad
 }
 
 export default async function NotePage({ params }: NotePageProps) {
-  const { id } = params;
+  const { id } = await params;
 
   const queryClient = new QueryClient();
 
