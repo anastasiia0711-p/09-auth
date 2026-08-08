@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { cookies } from "next/headers";
-import { checkSession, refreshSession } from "@/lib/api/serverApi";
+import { checkSession } from "@/lib/api/serverApi";
 import { parseSetCookie } from "cookie";
 
 const privateRoutes = ["/profile", "/notes"];
@@ -10,6 +10,12 @@ const publicRoutes = ["/sign-in", "/sign-up"];
 interface ParsedCookie {
   name: string;
   value: string;
+  httpOnly?: boolean;
+  secure?: boolean;
+  sameSite?: "lax" | "strict" | "none" | boolean;
+  path?: string;
+  expires?: Date;
+  maxAge?: number;
 }
 
 export async function proxy(request: NextRequest) {
@@ -22,16 +28,11 @@ export async function proxy(request: NextRequest) {
   let isAuthenticated = false;
   const newCookies: ParsedCookie[] = [];
 
-  if (accessToken) {
+  if (!accessToken && !refreshToken) {
+    isAuthenticated = false;
+  } else {
     try {
       const response = await checkSession();
-      isAuthenticated = response.status >= 200 && response.status < 300;
-    } catch {
-      isAuthenticated = false;
-    }
-  } else if (refreshToken) {
-    try {
-      const response = await refreshSession();
 
       if (response.status >= 200 && response.status < 300) {
         isAuthenticated = true;
@@ -40,7 +41,7 @@ export async function proxy(request: NextRequest) {
         const setCookieHeader =
           typeof headers.getSetCookie === "function"
             ? headers.getSetCookie()
-            : headers["set-cookie"];
+            : null;
 
         if (setCookieHeader) {
           const cookieStrings = Array.isArray(setCookieHeader)
@@ -50,10 +51,26 @@ export async function proxy(request: NextRequest) {
           cookieStrings.forEach((str) => {
             const parsed = parseSetCookie(str);
             if (parsed && parsed.name && parsed.value) {
-              newCookies.push({ name: parsed.name, value: parsed.value });
+              newCookies.push({
+                name: parsed.name,
+                value: parsed.value,
+                httpOnly: parsed.httpOnly,
+                secure: parsed.secure,
+                sameSite: parsed.sameSite as
+                  | "lax"
+                  | "strict"
+                  | "none"
+                  | boolean
+                  | undefined,
+                path: parsed.path,
+                expires: parsed.expires,
+                maxAge: parsed.maxAge,
+              });
             }
           });
         }
+      } else {
+        isAuthenticated = false;
       }
     } catch {
       isAuthenticated = false;
@@ -72,10 +89,15 @@ export async function proxy(request: NextRequest) {
   }
 
   newCookies.forEach((c) => {
-    res.cookies.set(c.name, c.value, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
+    res.cookies.set({
+      name: c.name,
+      value: c.value,
+      httpOnly: c.httpOnly,
+      secure: c.secure,
+      sameSite: c.sameSite,
+      path: c.path,
+      expires: c.expires,
+      maxAge: c.maxAge,
     });
   });
 
